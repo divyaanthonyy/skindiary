@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>skindiary</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --cream: #FAF8F4;
+    --ink: #1A1714;
+    --ink-muted: #6B6660;
+    --ink-faint: #B8B4AF;
+    --border: #E8E4DF;
+    --seek-bg: #EAF3DE;
+    --seek-text: #27500A;
+    --avoid-bg: #FCEBEB;
+    --avoid-text: #791F1F;
+    --accent: #C4875A;
+    --accent-light: #F5EDE4;
+  }
+
+  html, body {
+    min-height: 100%;
+    background: var(--cream);
+    color: var(--ink);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 400;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .screen {
+    display: none;
+    min-height: 100vh;
+    padding: 0 1.25rem 3rem;
+    max-width: 480px;
+    margin: 0 auto;
+  }
+  .screen.active { display: block; }
+
+  .top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.75rem 0 2rem;
+  }
+  .wordmark {
+    font-family: 'DM Serif Display', serif;
+    font-size: 20px;
+    letter-spacing: -0.3px;
+    color: var(--ink);
+  }
+  .step-counter { font-size: 12px; color: var(--ink-faint); letter-spacing: 0.06em; }
+
+  .progress-bar {
+    height: 2px;
+    background: var(--border);
+    border-radius: 2px;
+    margin-bottom: 2.5rem;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 2px;
+    transition: width 0.4s ease;
+  }
+
+  .q-heading {
+    font-family: 'DM Serif Display', serif;
+    font-size: 26px;
+    line-height: 1.25;
+    margin-bottom: 0.5rem;
+    letter-spacing: -0.3px;
+  }
+  .q-sub {
+    font-size: 14px;
+    color: var(--ink-muted);
+    margin-bottom: 2rem;
+    line-height: 1.6;
+  }
+
+  .options {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 2rem;
+  }
+  .options.single-col { grid-template-columns: 1fr; }
+
+  .opt {
+    background: #fff;
+    border: 1.5px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+    text-align: left;
+    user-select: none;
+  }
+  .opt:hover { border-color: var(--accent); }
+  .opt.selected { border-color: var(--accent); background: var(--accent-light); }
+  .opt-label {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--ink);
+    display: block;
+    margin-bottom: 3px;
+  }
+  .opt.selected .opt-label { color: var(--accent); }
+  .opt-desc { font-size: 12px; color: var(--ink-muted); line-height: 1.4; }
+
+  .btn-next {
+    width: 100%;
+    padding: 15px;
+    background: var(--ink);
+    color: var(--cream);
+    border: none;
+    border-radius: 12px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .btn-next:hover { opacity: 0.85; }
+  .btn-next:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  #screen-loading {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    text-align: center;
+    padding: 2rem;
+    max-width: 480px;
+    margin: 0 auto;
+  }
+  #screen-loading.active { display: flex; }
+  .loading-title { font-family: 'DM Serif Display', serif; font-size: 24px; margin-bottom: 0.5rem; }
+  .loading-sub { font-size: 14px; color: var(--ink-muted); margin-bottom: 2.5rem; }
+  .spinner {
+    width: 36px; height: 36px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-steps {
+    margin-top: 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    text-align: left;
+    width: 100%;
+    max-width: 300px;
+  }
+  .loading-step {
+    font-size: 13px;
+    color: var(--ink-faint);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: color 0.3s;
+  }
+  .loading-step.done { color: var(--ink-muted); }
+  .loading-step.active-step { color: var(--ink); }
+  .step-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--border);
+    flex-shrink: 0;
+    transition: background 0.3s;
+  }
+  .loading-step.done .step-dot { background: var(--accent); }
+  .loading-step.active-step .step-dot { background: var(--ink); }
+
+  #screen-results {
+    display: none;
+    min-height: 100vh;
+    padding: 0 1.25rem 4rem;
+    max-width: 480px;
+    margin: 0 auto;
+  }
+  #screen-results.active { display: block; }
+
+  .results-header {
+    padding: 1.75rem 0 2rem;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 2rem;
+  }
+  .results-wordmark { font-family: 'DM Serif Display', serif; font-size: 20px; margin-bottom: 1.25rem; }
+  .concern-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+  .concern-tag {
+    font-size: 12px;
+    background: var(--accent-light);
+    color: var(--accent);
+    border-radius: 100px;
+    padding: 4px 12px;
+    font-weight: 500;
+  }
+
+  .section-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 20px;
+    margin-bottom: 0.25rem;
+    letter-spacing: -0.2px;
+  }
+  .section-sub { font-size: 13px; color: var(--ink-muted); margin-bottom: 1.25rem; line-height: 1.5; }
+
+  .ing-section { margin-bottom: 2.5rem; }
+  .ing-list {
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    background: #fff;
+  }
+  .ing-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    gap: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .ing-row:last-child { border-bottom: none; }
+  .ing-info { flex: 1; min-width: 0; }
+  .ing-name { font-size: 14px; font-weight: 500; color: var(--ink); margin-bottom: 2px; }
+  .ing-why { font-size: 12px; color: var(--ink-muted); line-height: 1.4; }
+  .ing-badge { font-size: 11px; padding: 4px 10px; border-radius: 100px; font-weight: 500; flex-shrink: 0; }
+  .badge-seek { background: var(--seek-bg); color: var(--seek-text); }
+  .badge-avoid { background: var(--avoid-bg); color: var(--avoid-text); }
+
+  .products-section { margin-bottom: 2.5rem; }
+  .product-card {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 10px;
+  }
+  .product-name { font-size: 15px; font-weight: 500; color: var(--ink); margin-bottom: 4px; line-height: 1.3; }
+  .product-type { font-size: 12px; color: var(--ink-muted); margin-bottom: 10px; }
+  .product-why { font-size: 13px; color: var(--ink-muted); line-height: 1.55; margin-bottom: 10px; }
+  .reddit-source {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    color: var(--ink-faint);
+    border-top: 1px solid var(--border);
+    padding-top: 10px;
+    width: 100%;
+  }
+  .reddit-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--ink-faint); }
+
+  .disclaimer {
+    font-size: 12px;
+    color: var(--ink-faint);
+    line-height: 1.6;
+    text-align: center;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+  }
+  .btn-restart {
+    width: 100%;
+    padding: 13px;
+    background: transparent;
+    color: var(--ink-muted);
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    cursor: pointer;
+    margin-top: 1.5rem;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .btn-restart:hover { border-color: var(--ink-muted); color: var(--ink); }
+
+  .error-msg {
+    background: var(--avoid-bg);
+    color: var(--avoid-text);
+    border-radius: 10px;
+    padding: 14px 16px;
+    font-size: 13px;
+    line-height: 1.5;
+    margin-bottom: 1rem;
+  }
+
+  .fade-in { animation: fadeIn 0.5s ease both; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  .fade-in-delay-1 { animation-delay: 0.1s; }
+  .fade-in-delay-2 { animation-delay: 0.2s; }
+</style>
+</head>
+<body>
+
+<div class="screen active" id="screen-q1">
+  <div class="top-bar">
+    <span class="wordmark">skindiary</span>
+    <span class="step-counter">1 of 3</span>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" style="width: 33%"></div></div>
+  <h1 class="q-heading">what's your skin tone?</h1>
+  <p class="q-sub">this helps us pull from communities with the most relevant experiences for you.</p>
+  <div class="options single-col" id="tone-options">
+    <div class="opt" data-val="fair" onclick="selectOne(this,'tone-options','btn-q1')">
+      <span class="opt-label">fair / light</span>
+      <span class="opt-desc">burns easily, rarely tans</span>
+    </div>
+    <div class="opt" data-val="medium" onclick="selectOne(this,'tone-options','btn-q1')">
+      <span class="opt-label">medium / olive</span>
+      <span class="opt-desc">tans easily, sometimes burns</span>
+    </div>
+    <div class="opt" data-val="brown" onclick="selectOne(this,'tone-options','btn-q1')">
+      <span class="opt-label">brown</span>
+      <span class="opt-desc">rarely burns, tans deeply</span>
+    </div>
+    <div class="opt" data-val="deep" onclick="selectOne(this,'tone-options','btn-q1')">
+      <span class="opt-label">deep / dark</span>
+      <span class="opt-desc">almost never burns</span>
+    </div>
+  </div>
+  <button class="btn-next" id="btn-q1" disabled onclick="goTo('screen-q2')">continue</button>
+</div>
+
+<div class="screen" id="screen-q2">
+  <div class="top-bar">
+    <span class="wordmark">skindiary</span>
+    <span class="step-counter">2 of 3</span>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" style="width: 66%"></div></div>
+  <h1 class="q-heading">how does your skin usually feel?</h1>
+  <p class="q-sub">by midday, after your morning routine.</p>
+  <div class="options single-col" id="type-options">
+    <div class="opt" data-val="oily" onclick="selectOne(this,'type-options','btn-q2')">
+      <span class="opt-label">shiny all over</span>
+      <span class="opt-desc">oily skin — pores visible, products slide off</span>
+    </div>
+    <div class="opt" data-val="dry" onclick="selectOne(this,'type-options','btn-q2')">
+      <span class="opt-label">tight and dry</span>
+      <span class="opt-desc">dry skin — flaky patches, feels stripped</span>
+    </div>
+    <div class="opt" data-val="combination" onclick="selectOne(this,'type-options','btn-q2')">
+      <span class="opt-label">oily T-zone, dry cheeks</span>
+      <span class="opt-desc">combination — mixed zones</span>
+    </div>
+    <div class="opt" data-val="normal" onclick="selectOne(this,'type-options','btn-q2')">
+      <span class="opt-label">balanced, comfortable</span>
+      <span class="opt-desc">normal skin — not particularly oily or dry</span>
+    </div>
+  </div>
+  <button class="btn-next" id="btn-q2" disabled onclick="goTo('screen-q3')">continue</button>
+</div>
+
+<div class="screen" id="screen-q3">
+  <div class="top-bar">
+    <span class="wordmark">skindiary</span>
+    <span class="step-counter">3 of 3</span>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" style="width: 100%"></div></div>
+  <h1 class="q-heading">what are you trying to target?</h1>
+  <p class="q-sub">pick everything that applies.</p>
+  <div class="options" id="concern-options">
+    <div class="opt" data-val="hyperpigmentation" onclick="selectMany(this)">
+      <span class="opt-label">dark spots</span>
+      <span class="opt-desc">hyperpigmentation, post-acne marks</span>
+    </div>
+    <div class="opt" data-val="acne" onclick="selectMany(this)">
+      <span class="opt-label">breakouts</span>
+      <span class="opt-desc">acne, congestion, blackheads</span>
+    </div>
+    <div class="opt" data-val="dryness" onclick="selectMany(this)">
+      <span class="opt-label">dryness</span>
+      <span class="opt-desc">dehydration, tightness, dullness</span>
+    </div>
+    <div class="opt" data-val="anti-aging" onclick="selectMany(this)">
+      <span class="opt-label">fine lines</span>
+      <span class="opt-desc">anti-aging, loss of firmness</span>
+    </div>
+    <div class="opt" data-val="sensitivity" onclick="selectMany(this)">
+      <span class="opt-label">sensitivity</span>
+      <span class="opt-desc">redness, irritation, reactive skin</span>
+    </div>
+    <div class="opt" data-val="texture" onclick="selectMany(this)">
+      <span class="opt-label">texture</span>
+      <span class="opt-desc">rough, uneven surface</span>
+    </div>
+  </div>
+  <button class="btn-next" id="btn-q3" disabled onclick="runAnalysis()">see my results</button>
+</div>
+
+<div id="screen-loading">
+  <div class="loading-title">reading the threads…</div>
+  <div class="loading-sub">pulling from r/SkincareAddiction, r/brownskincare & more</div>
+  <div class="spinner"></div>
+  <div class="loading-steps">
+    <div class="loading-step" id="ls1"><div class="step-dot"></div>scanning reddit posts</div>
+    <div class="loading-step" id="ls2"><div class="step-dot"></div>matching to your concerns</div>
+    <div class="loading-step" id="ls3"><div class="step-dot"></div>building your ingredient list</div>
+    <div class="loading-step" id="ls4"><div class="step-dot"></div>finding product picks</div>
+  </div>
+</div>
+
+<div id="screen-results">
+  <div class="results-header">
+    <div class="results-wordmark">skindiary</div>
+    <div class="concern-tags" id="concern-tags"></div>
+  </div>
+  <div id="results-content"></div>
+</div>
+
+<script>
+  const state = { tone: null, type: null, concerns: [] };
+
+  function selectOne(el, groupId, btnId) {
+    document.querySelectorAll(`#${groupId} .opt`).forEach(o => o.classList.remove('selected'));
+    el.classList.add('selected');
+    if (groupId === 'tone-options') state.tone = el.dataset.val;
+    if (groupId === 'type-options') state.type = el.dataset.val;
+    document.getElementById(btnId).disabled = false;
+  }
+
+  function selectMany(el) {
+    el.classList.toggle('selected');
+    state.concerns = Array.from(document.querySelectorAll('#concern-options .opt.selected')).map(o => o.dataset.val);
+    document.getElementById('btn-q3').disabled = state.concerns.length === 0;
+  }
+
+  function goTo(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+  }
+
+  function showLoading() {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById('screen-loading').classList.add('active');
+    const steps = ['ls1','ls2','ls3','ls4'];
+    let i = 0;
+    const tick = () => {
+      if (i > 0) {
+        document.getElementById(steps[i-1]).classList.remove('active-step');
+        document.getElementById(steps[i-1]).classList.add('done');
+      }
+      if (i < steps.length) {
+        document.getElementById(steps[i]).classList.add('active-step');
+        i++;
+        setTimeout(tick, 1200);
+      }
+    };
+    tick();
+  }
+
+  async function runAnalysis() {
+    showLoading();
+    try {
+      const res = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tone: state.tone, type: state.type, concerns: state.concerns }),
+      });
+      if (!res.ok) throw new Error('API error');
+      const data = await res.json();
+      showResults(data);
+    } catch (e) {
+      showError();
+    }
+  }
+
+  function showResults(data) {
+    document.getElementById('screen-loading').classList.remove('active');
+    document.getElementById('screen-results').classList.add('active');
+
+    document.getElementById('concern-tags').innerHTML =
+      state.concerns.map(c => `<span class="concern-tag">${c}</span>`).join('');
+
+    const src = state.tone === 'brown' || state.tone === 'deep'
+      ? 'r/brownskincare & r/SkincareAddiction'
+      : 'r/SkincareAddiction';
+
+    let html = `<div class="ing-section fade-in">
+      <h2 class="section-title">ingredients to know</h2>
+      <p class="section-sub">based on what ${src} recommends for your profile.</p>
+      <div class="ing-list">`;
+
+    (data.seek || []).forEach(i => {
+      html += `<div class="ing-row">
+        <div class="ing-info"><div class="ing-name">${i.name}</div><div class="ing-why">${i.why}</div></div>
+        <span class="ing-badge badge-seek">seek</span>
+      </div>`;
+    });
+    (data.avoid || []).forEach(i => {
+      html += `<div class="ing-row">
+        <div class="ing-info"><div class="ing-name">${i.name}</div><div class="ing-why">${i.why}</div></div>
+        <span class="ing-badge badge-avoid">avoid</span>
+      </div>`;
+    });
+
+    html += `</div></div>
+    <div class="products-section fade-in fade-in-delay-1">
+      <h2 class="section-title">community picks</h2>
+      <p class="section-sub">products that come up again and again in these threads for your concerns.</p>`;
+
+    (data.products || []).forEach(p => {
+      html += `<div class="product-card">
+        <div class="product-name">${p.name}</div>
+        <div class="product-type">${p.type}</div>
+        <div class="product-why">${p.why}</div>
+        <div class="reddit-source"><span class="reddit-dot"></span>${p.source}</div>
+      </div>`;
+    });
+
+    html += `</div>
+    <div class="fade-in fade-in-delay-2">
+      <p class="disclaimer">recommendations are synthesised from community discussions, not medical advice. patch test new products and introduce one at a time.</p>
+      <button class="btn-restart" onclick="restart()">start over</button>
+    </div>`;
+
+    document.getElementById('results-content').innerHTML = html;
+  }
+
+  function showError() {
+    document.getElementById('screen-loading').classList.remove('active');
+    document.getElementById('screen-results').classList.add('active');
+    document.getElementById('results-content').innerHTML = `
+      <div class="error-msg">something went wrong. please try again in a moment.</div>
+      <button class="btn-restart" onclick="restart()">try again</button>`;
+  }
+
+  function restart() {
+    state.tone = null; state.type = null; state.concerns = [];
+    document.querySelectorAll('.opt').forEach(o => o.classList.remove('selected'));
+    ['btn-q1','btn-q2','btn-q3'].forEach(id => document.getElementById(id).disabled = true);
+    ['ls1','ls2','ls3','ls4'].forEach(id => {
+      document.getElementById(id).classList.remove('active-step','done');
+    });
+    document.getElementById('screen-results').classList.remove('active');
+    document.getElementById('screen-loading').classList.remove('active');
+    document.getElementById('concern-tags').innerHTML = '';
+    document.getElementById('results-content').innerHTML = '';
+    goTo('screen-q1');
+  }
+</script>
+</body>
+</html>
